@@ -7,7 +7,7 @@ document.body.innerHTML = `
 type Point = { x: number; y: number };
 type Line = Point[];
 let curLine: Line;
-const lines: Line[] = [];
+let lines: Line[] = [];
 
 ////////////////////////////////       Cavnas Creation         ////////////////////////////////////////////////////////
 const canvas = document.createElement("canvas");
@@ -77,5 +77,6 @@ document.body.append(clearButton);
 if (ctx) {
   clearButton.addEventListener("click", () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    lines = [];
   });
 }
