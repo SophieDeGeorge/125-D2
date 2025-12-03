@@ -5,40 +5,35 @@ document.body.innerHTML = `
 `;
 
 type Point = { x: number; y: number };
-type Line = Point[];
-let curLine: Line;
-let lines: Line[] = [];
-const redoStack: Line[] = [];
+
+const lines: LineCommand[] = [];
+const redoLines: LineCommand[] = [];
+let curLine: LineCommand;
 
 ////////////////////////////////       Cavnas Creation         ////////////////////////////////////////////////////////
+
 const canvas = document.createElement("canvas");
+const ctx = canvas.getContext("2d");
+const cursor = { active: false, x: 0, y: 0 };
 canvas.width = 256;
 canvas.height = 256;
 document.body.append(canvas);
 
-const ctx = canvas.getContext("2d");
-
-const cursor = { active: false, x: 0, y: 0 };
-
-////////////////////////////////       Canvas Event Listeners          ////////////////////////////////////////////////////////
-
 canvas.addEventListener("drawing-changed", redraw);
+
+////////////////////////////////       Mouse Input          ////////////////////////////////////////////////////////
 
 canvas.addEventListener("mousedown", (e) => {
   cursor.active = true;
-  cursor.x = e.offsetX;
-  cursor.y = e.offsetY;
-  curLine = [];
+
+  curLine = new LineCommand({ x: e.offsetX, y: e.offsetY });
   lines.push(curLine);
-  curLine.push({ x: cursor.x, y: cursor.y });
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 canvas.addEventListener("mousemove", (e) => {
   if (cursor.active) {
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
-    curLine.push({ x: cursor.x, y: cursor.y });
+    curLine.drag({ x: e.offsetX, y: e.offsetY });
     canvas.dispatchEvent(new Event("drawing-changed"));
   }
 });
@@ -46,24 +41,38 @@ canvas.addEventListener("mousemove", (e) => {
 // On mouseUp, stop drawing
 canvas.addEventListener("mouseup", (_e) => {
   cursor.active = false;
-  curLine = [];
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
+
+class LineCommand {
+  line: Point[] = [];
+
+  constructor(startingPoint: Point) {
+    this.line = [startingPoint];
+  }
+
+  display(ctx: CanvasRenderingContext2D) {
+    if (this.line.length < 1) {
+      return;
+    }
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.moveTo(this.line[0].x, this.line[0].y); // start at the first point
+    this.line.forEach((point: Point) => ctx.lineTo(point.x, point.y)); // move endpoint to next point
+    ctx.stroke();
+  }
+
+  drag(endPoint: Point) {
+    this.line.push(endPoint);
+  }
+}
 
 ////////////////////////////////       Redraw         ////////////////////////////////////////////////////////
 function redraw() {
   if (ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas from 0,0 to maxwidth, maxheight
-    for (const line of lines) { // For each line in lines array,
-      if (line.length > 1) {
-        ctx.beginPath();
-        ctx.moveTo(line[0].x, line[0].y); // Set line start point at line[0]
-        for (const point of line) {
-          ctx.lineTo(point.x, point.y); // Set line endpoint to pointxy
-        }
-        ctx.stroke(); // Draw line from line[0] to point
-      }
-    }
+    lines.forEach((line: LineCommand) => line.display(ctx));
+    console.log("finished redraw");
   }
 }
 
@@ -77,12 +86,7 @@ document.body.append(clearButton);
 if (ctx) {
   clearButton.addEventListener("click", () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    /* // Allows for redo-ing a clear, but only goes line-by-line, merge lines into one and push onto redostack?
-    while (lines.length > 0) {
-      redoStack.push(lines.pop() as Line);
-    }
-    */
-    lines = [];
+    lines.splice(0, lines.length);
   });
 }
 
@@ -96,7 +100,7 @@ document.body.append(undoButton);
 undoButton.addEventListener("click", () => {
   if (ctx && (lines.length > 0)) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    redoStack.push(lines.pop() as Line);
+    redoLines.push(lines.pop() as LineCommand);
     canvas.dispatchEvent(new Event("drawing-changed"));
   }
 });
@@ -109,8 +113,8 @@ document.body.append(redoButton);
 
 // Redo button event listener
 redoButton.addEventListener("click", () => {
-  if (ctx && (redoStack.length > 0)) {
-    lines.push(redoStack.pop() as Line);
+  if (ctx && (redoLines.length > 0)) {
+    lines.push(redoLines.pop() as LineCommand);
   }
   canvas.dispatchEvent(new Event("drawing-changed")); // Repeating code, Make function
 });
