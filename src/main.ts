@@ -132,12 +132,18 @@ redoButton.addEventListener("click", () => {
 // Button
 const thinButton = document.createElement("button");
 thinButton.innerHTML = "Thin";
+thinButton.style.backgroundColor = "transparent";
+if (brushSize == brushThin) {
+  thinButton.style.backgroundColor = "yellow";
+}
 document.body.append(thinButton);
 
 // Event Listener
 thinButton.addEventListener("click", () => {
   if (brushSize != brushThin) {
     brushSize = brushThin;
+    thinButton.style.backgroundColor = "yellow";
+    thickButton.style.backgroundColor = "transparent";
   }
 });
 // #endregion
@@ -146,12 +152,15 @@ thinButton.addEventListener("click", () => {
 // Button
 const thickButton = document.createElement("button");
 thickButton.innerHTML = "Thick";
+thickButton.style.backgroundColor = "transparent";
 document.body.append(thickButton);
 
 // Event Listener
-thinButton.addEventListener("click", () => {
+thickButton.addEventListener("click", () => {
   if (brushSize != brushThick) {
     brushSize = brushThick;
+    thickButton.style.backgroundColor = "yellow";
+    thinButton.style.backgroundColor = "transparent";
   }
 });
 // #endregion
