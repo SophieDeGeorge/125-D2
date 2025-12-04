@@ -9,6 +9,9 @@ type Point = { x: number; y: number };
 const lines: LineCommand[] = [];
 const redoLines: LineCommand[] = [];
 let curLine: LineCommand;
+const brushThin: number = 1.0;
+const brushThick: number = 3.0;
+let brushSize = brushThin;
 
 ////////////////////////////////       Cavnas Creation         ////////////////////////////////////////////////////////
 
@@ -55,7 +58,7 @@ class LineCommand {
     if (this.line.length < 1) {
       return;
     }
-    ctx.lineWidth = 1.0;
+    ctx.lineWidth = brushSize;
     ctx.beginPath();
     ctx.moveTo(this.line[0].x, this.line[0].y); // start at the first point
     this.line.forEach((point: Point) => ctx.lineTo(point.x, point.y)); // move endpoint to next point
@@ -117,4 +120,30 @@ redoButton.addEventListener("click", () => {
     lines.push(redoLines.pop() as LineCommand);
   }
   canvas.dispatchEvent(new Event("drawing-changed")); // Repeating code, Make function
+});
+
+////////////////////////////////       Thin Button         ////////////////////////////////////////////////////////
+// Button
+const thinButton = document.createElement("button");
+thinButton.innerHTML = "Thin";
+document.body.append(thinButton);
+
+// Event Listener
+thinButton.addEventListener("click", () => {
+  if (brushSize != brushThin) {
+    brushSize = brushThin;
+  }
+});
+
+////////////////////////////////       Thick Button         ////////////////////////////////////////////////////////
+// Button
+const thickButton = document.createElement("button");
+thickButton.innerHTML = "Thick";
+document.body.append(thickButton);
+
+// Event Listener
+thinButton.addEventListener("click", () => {
+  if (brushSize != brushThick) {
+    brushSize = brushThick;
+  }
 });
