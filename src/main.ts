@@ -14,6 +14,8 @@ let toolType: string = "brush";
 let stickerString: string;
 const stickerSize: string = "30px sans serif";
 
+let curColor: string = "black";
+
 //#region Canvas
 ////////////////////////////////       Cavnas Creation         ////////////////////////////////////////////////////////
 
@@ -27,8 +29,6 @@ document.body.append(canvas);
 const buttonContainer = document.createElement("div");
 document.body.append(buttonContainer);
 
-//canvas.addEventListener("drawing-changed", redraw(ctx));
-//canvas.addEventListener("tool-changed", redraw(ctx));
 // #endregion
 
 //#region Event System
@@ -65,11 +65,13 @@ class Command {
 class LineCommand extends Command {
   line: Point[] = [];
   brushSize: number;
+  color: string;
 
-  constructor(startingPoint: Point, width: number) {
+  constructor(startingPoint: Point, width: number, color: string) {
     super();
     this.line = [startingPoint];
     this.brushSize = width;
+    this.color = color;
   }
 
   override display(ctx: CanvasRenderingContext2D): void {
@@ -77,6 +79,7 @@ class LineCommand extends Command {
       return;
     }
     ctx.lineWidth = this.brushSize;
+    ctx.strokeStyle = this.color;
     ctx.beginPath();
     ctx.moveTo(this.line[0].x, this.line[0].y); // start at the first point
     this.line.forEach((point: Point) => ctx.lineTo(point.x, point.y)); // move endpoint to next point
@@ -117,16 +120,19 @@ class StickerCommand extends Command {
 class ToolPreviewCommand extends Command {
   radius: number;
   mouse: Point;
+  color: string;
 
-  constructor(mousePosition: Point, brushSize: number) {
+  constructor(mousePosition: Point, brushSize: number, color: string) {
     super();
     this.mouse = mousePosition;
     this.radius = 1.0 * brushSize;
+    this.color = color;
   }
 
   override display(ctx: CanvasRenderingContext2D) {
     ctx.beginPath();
     ctx.arc(this.mouse.x, this.mouse.y, this.radius, 0, 2 * Math.PI);
+    ctx.fillStyle = this.color;
     ctx.fill();
   }
 
@@ -154,7 +160,6 @@ class StickerPreviewCommand extends Command {
   }
 
   override drag(point: Point) {
-    //console.log("Sticker preview drag");
     this.point = point;
     ctx.font = stickerSize;
     ctx.fillText(this.text, this.point.x, this.point.y);
@@ -166,12 +171,11 @@ class StickerPreviewCommand extends Command {
 //#region Redraw
 ////////////////////////////////       Redraw Function        ////////////////////////////////////////////////////////
 function redraw(drawCTX: CanvasRenderingContext2D) {
-  //console.log("redraw called");
   //Clear Canvas & add white background
   drawCTX.clearRect(0, 0, canvas.width, canvas.height);
   drawCTX.fillStyle = "white";
   drawCTX.fillRect(0, 0, 1024, 1024);
-  drawCTX.fillStyle = "black";
+  drawCTX.fillStyle = curColor;
 
   commands.forEach((command: Command) => command.display(drawCTX));
 
@@ -183,7 +187,7 @@ function redraw(drawCTX: CanvasRenderingContext2D) {
 
 function createLine(point: Point): Command {
   if (toolType == "brush") {
-    return new LineCommand(point, curBrushSize);
+    return new LineCommand(point, curBrushSize, curColor);
   } else {
     return new StickerCommand(point, stickerString);
   }
@@ -191,9 +195,30 @@ function createLine(point: Point): Command {
 
 function createPreview(point: Point): Command {
   if (toolType == "brush") {
-    return new ToolPreviewCommand(point, curBrushSize);
+    return new ToolPreviewCommand(point, curBrushSize, curColor);
   } else {
     return new StickerPreviewCommand(point, stickerString);
+  }
+}
+
+function randomColor() {
+  const temp = Math.floor(Math.random() * 6);
+  if (temp == 1) {
+    return "black";
+  }
+  if (temp == 2) {
+    return "red";
+  }
+  if (temp == 3) {
+    return "green";
+  }
+  if (temp == 4) {
+    return "blue";
+  }
+  if (temp == 5) {
+    return "yellow";
+  } else {
+    return "pink";
   }
 }
 
@@ -242,7 +267,6 @@ canvas.addEventListener("mousemove", (e) => {
 
 // On mouseUp, stop drawing
 canvas.addEventListener("mouseup", (e) => {
-  console.log("mouseup");
   cursor.active = false;
   toolPreview = createPreview({ x: e.offsetX, y: e.offsetY });
   if (toolPreview) {
@@ -316,11 +340,11 @@ buttonContainer.appendChild(thinButton);
 
 // Event Listener
 thinButton.addEventListener("click", () => {
-  if (curBrushSize != brushThin) {
-    curBrushSize = brushThin;
-    thinButton.style.backgroundColor = "yellow";
-    thickButton.style.backgroundColor = "transparent";
-  }
+  curColor = randomColor();
+  curBrushSize = brushThin;
+  thinButton.style.backgroundColor = curColor;
+  thickButton.style.backgroundColor = "transparent";
+
   toolType = "brush";
 });
 // #endregion
@@ -335,11 +359,11 @@ buttonContainer.appendChild(thickButton);
 
 // Event Listener
 thickButton.addEventListener("click", () => {
-  if (curBrushSize != brushThick) {
-    curBrushSize = brushThick;
-    thickButton.style.backgroundColor = "yellow";
-    thinButton.style.backgroundColor = "transparent";
-  }
+  curColor = randomColor();
+  curBrushSize = brushThick;
+  thickButton.style.backgroundColor = curColor;
+  thinButton.style.backgroundColor = "transparent";
+
   toolType = "brush";
 });
 // #endregion
@@ -354,7 +378,6 @@ function CreateStickerButton(emoji: string) {
   newButton.addEventListener("click", () => {
     stickerString = emoji;
     toolType = "sticker";
-    console.log(toolType);
   });
   buttonContainer.appendChild(newButton);
 }
