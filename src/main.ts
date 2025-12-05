@@ -369,6 +369,33 @@ thickButton.addEventListener("click", () => {
 });
 // #endregion
 
+const addButton = document.createElement("button");
+addButton.innerHTML = "+";
+addButton.style.backgroundColor = "transparent";
+buttonContainer.appendChild(addButton);
+
+addButton.addEventListener("click", () => {
+  const result: string | null = prompt("Add New Sticker", "🧝");
+  if (result) {
+    CreateStickerButton(result);
+  }
+});
+
+function CreateStickerButton(emoji: string) {
+  const newButton: HTMLButtonElement = document.createElement(
+    "button",
+  ) as HTMLButtonElement;
+  newButton.className = "sticker-buttons";
+  newButton.innerHTML = emoji;
+
+  newButton.addEventListener("click", () => {
+    stickerString = emoji;
+    brushType = "sticker";
+    console.log(brushType);
+  });
+  buttonContainer.appendChild(newButton);
+}
+
 //#region Sticker Buttons
 const stickerButtons: string[] = [];
 stickerButtons.push("👁️");
@@ -376,17 +403,6 @@ stickerButtons.push("🐶");
 stickerButtons.push("🥞");
 
 stickerButtons.forEach((element) => {
-  const newButton: HTMLButtonElement = document.createElement(
-    "button",
-  ) as HTMLButtonElement;
-  newButton.className = "sticker-buttons";
-  newButton.innerHTML = element;
-
-  newButton.addEventListener("click", () => {
-    stickerString = element;
-    brushType = "sticker";
-    console.log(brushType);
-  });
-  buttonContainer.appendChild(newButton);
+  CreateStickerButton(element);
 });
 //#endregion
