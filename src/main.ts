@@ -5,20 +5,12 @@ document.body.innerHTML = `
 `;
 
 type Point = { x: number; y: number };
-
-const lines: LineCommand[] = [];
-const redoLines: LineCommand[] = [];
-let curLine: LineCommand;
 const brushThin: number = 1.0;
 const brushThick: number = 3.0;
 let curBrushSize: number = brushThin;
-let toolPreview: ToolPreviewCommand | null = null;
-let stickerPreview: StickerPreviewCommand | null = null;
-let brushType: string = "brush";
+let toolPreview: Command | null = null;
+let toolType: string = "brush";
 let stickerString: string;
-let curSticker: StickerCommand;
-const stickers: StickerCommand[] = [];
-const redoStickers: StickerCommand[] = [];
 
 //#region Canvas
 ////////////////////////////////       Cavnas Creation         ////////////////////////////////////////////////////////
@@ -54,8 +46,8 @@ bus.addEventListener("tool-changed", () => {
 //#endregion
 
 //#region Commands
-const _commands: Command[] = [];
-const _redoCommands: Command[] = [];
+const commands: Command[] = [];
+const redoCommands: Command[] = [];
 
 class Command {
   constructor() {}
@@ -107,10 +99,12 @@ class StickerCommand extends Command {
   }
 
   override display(ctx: CanvasRenderingContext2D): void {
-    if (ctx) {
-      ctx.font = "50px sans serif";
-      ctx.fillText(this.text, this.point.x, this.point.y);
-    }
+    ctx.font = "50px sans serif";
+    ctx.fillText(this.text, this.point.x, this.point.y);
+  }
+
+  override drag(point: Point): void {
+    this.point = point;
   }
 }
 //#endregion
@@ -133,6 +127,10 @@ class ToolPreviewCommand extends Command {
     ctx.arc(this.mouse.x, this.mouse.y, this.radius, 0, 2 * Math.PI);
     ctx.fill();
   }
+
+  override drag(point: Point): void {
+    this.mouse = point;
+  }
 }
 
 //#endregion
@@ -154,12 +152,10 @@ class StickerPreviewCommand extends Command {
   }
 
   override drag(point: Point) {
-    console.log("Sticker preview drag");
+    //console.log("Sticker preview drag");
     this.point = point;
-    if (ctx) {
-      ctx.font = "50px sans serif";
-      ctx.fillText(this.text, this.point.x, this.point.y);
-    }
+    ctx.font = "50px sans serif";
+    ctx.fillText(this.text, this.point.x, this.point.y);
   }
 }
 
@@ -168,122 +164,89 @@ class StickerPreviewCommand extends Command {
 //#region Redraw
 ////////////////////////////////       Redraw Function        ////////////////////////////////////////////////////////
 function redraw(drawCTX: CanvasRenderingContext2D) {
-  if (drawCTX) {
-    drawCTX.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas from 0,0 to maxwidth, maxheight
-    drawCTX.fillStyle = "white";
-    drawCTX.fillRect(0, 0, 1024, 1024);
-    drawCTX.fillStyle = "black";
-    lines.forEach((line: LineCommand) =>
-      line.display(drawCTX as CanvasRenderingContext2D)
-    );
-    if (toolPreview && (brushType == "brush")) {
-      toolPreview.display(drawCTX);
-    }
-    stickers.forEach((sticker: StickerCommand) =>
-      sticker.display(drawCTX as CanvasRenderingContext2D)
-    );
-    if (stickerPreview && (brushType == "sticker")) {
-      stickerPreview.display(drawCTX);
-    }
+  //console.log("redraw called");
+  //Clear Canvas & add white background
+  drawCTX.clearRect(0, 0, canvas.width, canvas.height);
+  drawCTX.fillStyle = "white";
+  drawCTX.fillRect(0, 0, 1024, 1024);
+  drawCTX.fillStyle = "black";
+
+  commands.forEach((command: Command) => command.display(drawCTX));
+
+  if (toolPreview && !(cursor.active)) {
+    toolPreview.display(drawCTX);
   }
 }
 // #endregion
 
+function createLine(point: Point): Command {
+  if (toolType == "brush") {
+    return new LineCommand(point, curBrushSize);
+  } else {
+    return new StickerCommand(point, stickerString);
+  }
+}
+
+function createPreview(point: Point): Command {
+  if (toolType == "brush") {
+    return new ToolPreviewCommand(point, curBrushSize);
+  } else {
+    return new StickerPreviewCommand(point, stickerString);
+  }
+}
+
 //#region Mouse Input
 ////////////////////////////////       Mouse Input          ////////////////////////////////////////////////////////
-canvas.addEventListener("mouseover", (e) => {
-  if (cursor.active == false) {
-    if (brushType == "brush") {
-      toolPreview = new ToolPreviewCommand(
-        { x: e.offsetX, y: e.offsetY },
-        curBrushSize,
-      );
-    }
-
-    stickerPreview = new StickerPreviewCommand(
-      { x: e.offsetX, y: e.offsetY },
-      stickerString,
-    );
-    //canvas.dispatchEvent(new Event("tool-changed"));
-    notify("tool-changed");
-  }
-});
+let currentLineCommand: Command;
 
 canvas.addEventListener("mouseenter", (e) => {
-  if (brushType == "brush") {
-    toolPreview = new ToolPreviewCommand(
-      { x: e.offsetX, y: e.offsetY },
-      curBrushSize,
-    );
+  if (cursor.active) {
+    currentLineCommand = createLine({ x: e.offsetX, y: e.offsetY });
+    commands.push(currentLineCommand);
+    notify("drawing-changed");
   }
 
-  stickerPreview = new StickerPreviewCommand(
-    { x: e.offsetX, y: e.offsetY },
-    stickerString,
-  );
-  //canvas.dispatchEvent(new Event("tool-changed"));
+  toolPreview = createPreview({ x: e.offsetX, y: e.offsetY });
   notify("tool-changed");
 });
 
 canvas.addEventListener("mouseout", (_e) => {
   toolPreview = null;
-  stickerPreview = null;
-  //canvas.dispatchEvent(new Event("tool-changed"));
   notify("tool-changed");
-  console.log("mouse out");
 });
 
 canvas.addEventListener("mousedown", (e) => {
-  toolPreview = null;
-  stickerPreview = new StickerPreviewCommand(
-    { x: e.offsetX, y: e.offsetY },
-    stickerString,
-  );
-  notify("tool-changed");
   cursor.active = true;
 
-  if (brushType == "brush") {
-    curLine = new LineCommand({ x: e.offsetX, y: e.offsetY }, curBrushSize);
-    lines.push(curLine);
-  }
+  toolPreview = null;
+  notify("tool-changed");
+
+  currentLineCommand = createLine({ x: e.offsetX, y: e.offsetY });
+  commands.push(currentLineCommand);
   notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (e) => {
   if (cursor.active) {
-    if (brushType == "brush") {
-      curLine.drag({ x: e.offsetX, y: e.offsetY });
-    } else if (brushType == "sticker" && stickerPreview) {
-      stickerPreview.drag({ x: e.offsetX, y: e.offsetY });
-    }
-
+    currentLineCommand.drag({ x: e.offsetX, y: e.offsetY });
     notify("drawing-changed");
   } else {
-    toolPreview = new ToolPreviewCommand(
-      { x: e.offsetX, y: e.offsetY },
-      curBrushSize,
-    );
-    stickerPreview = new StickerPreviewCommand(
-      { x: e.offsetX, y: e.offsetY },
-      stickerString,
-    );
-    //canvas.dispatchEvent(new Event("tool-changed"));
+    if (toolPreview) {
+      toolPreview.drag({ x: e.offsetX, y: e.offsetY });
+    }
     notify("tool-changed");
   }
 });
 
 // On mouseUp, stop drawing
 canvas.addEventListener("mouseup", (e) => {
+  console.log("mouseup");
   cursor.active = false;
-  if (brushType == "sticker") {
-    curSticker = new StickerCommand(
-      { x: e.offsetX, y: e.offsetY },
-      stickerString,
-    );
-    stickers.push(curSticker);
-
-    notify("drawing-changed");
+  toolPreview = createPreview({ x: e.offsetX, y: e.offsetY });
+  if (toolPreview) {
+    toolPreview.drag({ x: e.offsetX, y: e.offsetY });
   }
+  notify("tool-changed");
 });
 //#endregion
 
@@ -293,17 +256,12 @@ canvas.addEventListener("mouseup", (e) => {
 // Clear Button
 const clearButton = document.createElement("button");
 clearButton.innerHTML = "clear";
-//document.body.append(clearButton);
 buttonContainer.appendChild(clearButton);
 
 // Clear Button Event Listener
-
 clearButton.addEventListener("click", () => {
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    lines.splice(0, lines.length);
-    stickers.splice(0, stickers.length);
-  }
+  commands.splice(0, commands.length);
+  notify("drawing-changed");
 });
 // #endregion
 
@@ -316,18 +274,10 @@ buttonContainer.appendChild(undoButton);
 
 // Undo Button Event Listener
 undoButton.addEventListener("click", () => {
-  if (ctx && (lines.length > 0)) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (brushType == "brush") {
-      redoLines.push(lines.pop() as LineCommand);
-    }
+  if (commands.length < 1) {
+    return;
   }
-  if (ctx && (stickers.length > 0)) {
-    if (brushType == "sticker") {
-      redoStickers.push(stickers.pop() as StickerCommand);
-    }
-  }
-
+  redoCommands.push(commands.pop() as LineCommand);
   notify("drawing-changed");
 });
 // #endregion
@@ -341,17 +291,10 @@ buttonContainer.appendChild(redoButton);
 
 // Redo button event listener
 redoButton.addEventListener("click", () => {
-  if (ctx && (redoLines.length > 0)) {
-    if (brushType == "brush") {
-      lines.push(redoLines.pop() as LineCommand);
-    }
+  if (redoCommands.length < 1) {
+    return;
   }
-  if (ctx && (redoStickers.length > 0)) {
-    if (brushType == "sticker") {
-      stickers.push(redoStickers.pop() as StickerCommand);
-    }
-  }
-
+  commands.push(redoCommands.pop() as LineCommand);
   notify("drawing-changed");
 });
 // #endregion
@@ -374,7 +317,7 @@ thinButton.addEventListener("click", () => {
     thinButton.style.backgroundColor = "yellow";
     thickButton.style.backgroundColor = "transparent";
   }
-  brushType = "brush";
+  toolType = "brush";
 });
 // #endregion
 
@@ -393,7 +336,7 @@ thickButton.addEventListener("click", () => {
     thickButton.style.backgroundColor = "yellow";
     thinButton.style.backgroundColor = "transparent";
   }
-  brushType = "brush";
+  toolType = "brush";
 });
 // #endregion
 
@@ -451,8 +394,8 @@ function CreateStickerButton(emoji: string) {
 
   newButton.addEventListener("click", () => {
     stickerString = emoji;
-    brushType = "sticker";
-    console.log(brushType);
+    toolType = "sticker";
+    console.log(toolType);
   });
   buttonContainer.appendChild(newButton);
 }
